@@ -13,9 +13,8 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-
 const database = getDatabase(app);
-const auth = getAuth(app); // ✅ 인증 객체
-const provider = new GoogleAuthProvider(); // ✅ 구글 로그인 제공자
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 
-export { database, auth, provider }; // ✅ export 해주기
+export { app, database, auth, provider }; // 👈 이 줄 추가!
