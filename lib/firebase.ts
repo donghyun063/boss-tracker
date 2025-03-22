@@ -3,7 +3,7 @@ import { getDatabase } from 'firebase/database';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'; // 🔥 추가
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyDJJpEqgQLnZPSxpYeXrMrwvCZLZ-b5YHBk',
+  apiKey: 'AIzaSyDJIpebql2nPZ5pxYeXrMrwC7LZ-b5YH8k',
   authDomain: 'boss-tracker-81001.firebaseapp.com',
   databaseURL: 'https://boss-tracker-81001-default-rtdb.firebaseio.com',
   projectId: 'boss-tracker-81001',
