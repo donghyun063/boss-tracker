@@ -2,47 +2,53 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, get, push, update, remove } from 'firebase/database';
+import { ref, push, onValue, remove } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function SpecPage() {
   const router = useRouter();
   const [form, setForm] = useState<any>({});
-  const [uid, setUid] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [specs, setSpecs] = useState<any[]>([]);
-  const [editKey, setEditKey] = useState<string | null>(null);
 
   const fields = [
-    '아이디', '레벨', '방어', '리덕', '템컬렉', '무기', '상의', '장갑', '신발', '투구', '목걸이',
-    '반지1', '반지2', '벨트', '각반', '망토', '시길',
-    ...Array.from({ length: 10 }, (_, i) => `영스${i + 1}`)
+    { name: 'id', label: '아이디' },
+    { name: 'level', label: '레벨' },
+    { name: 'def', label: '방어' },
+    { name: 'reduction', label: '리덕' },
+    { name: 'collection', label: '템컬렉' },
+    { name: 'weapon', label: '무기' },
+    { name: 'top', label: '상의' },
+    { name: 'gloves', label: '장갑' },
+    { name: 'shoes', label: '신발' },
+    { name: 'helmet', label: '투구' },
+    { name: 'necklace', label: '목걸이' },
+    { name: 'ring1', label: '반지1' },
+    { name: 'ring2', label: '반지2' },
+    { name: 'belt', label: '벨트' },
+    { name: 'leg', label: '각반' },
+    { name: 'cape', label: '망토' },
+    { name: 'sigil', label: '시길' },
+    ...Array.from({ length: 10 }, (_, i) => ({ name: `sp${i + 1}`, label: `영스${i + 1}` })),
   ];
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push('/login');
         return;
       }
-      setUid(user.uid);
-      setLoading(false);
     });
 
-    const fetchSpecs = async () => {
-      const snapshot = await get(ref(database, 'specs'));
+    const specRef = ref(database, 'specs');
+    onValue(specRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const parsed = Object.entries(data).map(([key, value]: any) => ({
-          key,
-          ...value,
-        }));
+        const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
         setSpecs(parsed);
       }
-    };
+    });
 
-    fetchSpecs();
     return () => unsubscribe();
   }, [router]);
 
@@ -52,110 +58,77 @@ export default function SpecPage() {
   };
 
   const handleSubmit = async () => {
-    if (editKey) {
-      await update(ref(database, `specs/${editKey}`), form);
-      setEditKey(null);
-    } else {
-      await push(ref(database, 'specs'), form);
-    }
+    await push(ref(database, 'specs'), form);
     setForm({});
-    const snapshot = await get(ref(database, 'specs'));
-    const data = snapshot.val();
-    if (data) {
-      const parsed = Object.entries(data).map(([key, value]: any) => ({
-        key,
-        ...value,
-      }));
-      setSpecs(parsed);
-    }
-  };
-
-  const handleEdit = (spec: any) => {
-    setForm(spec);
-    setEditKey(spec.key);
   };
 
   const handleDelete = async (key: string) => {
-    if (confirm('정말 삭제하시겠습니까?')) {
-      await remove(ref(database, `specs/${key}`));
-      setSpecs((prev) => prev.filter((spec) => spec.key !== key));
-    }
+    await remove(ref(database, `specs/${key}`));
   };
 
-  if (loading) return <div className="p-10 text-center">로딩 중...</div>;
-
   return (
-    <main className="flex flex-col items-center p-6 space-y-4 w-full">
+    <main className="p-5 max-w-screen-xl mx-auto">
       <button
         onClick={() => router.push('/')}
-        className="text-sm text-blue-600 underline self-start"
+        className="text-sm text-blue-600 underline mb-4"
       >
         ← 대시보드로 돌아가기
       </button>
 
-      <h1 className="text-xl font-bold mb-2">📋 스펙 입력</h1>
+      <h1 className="text-xl font-bold mb-4">📝 스펙 입력</h1>
 
       {/* 입력 영역 */}
-      <div className="flex flex-wrap gap-2 justify-start w-full max-w-screen-lg">
-        {fields.map((key) => (
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {fields.map((field) => (
           <input
-            key={key}
-            name={key}
-            placeholder={key}
-            value={form[key] || ''}
+            key={field.name}
+            name={field.name}
+            placeholder={field.label}
+            value={form[field.name] || ''}
             onChange={handleChange}
-            className="border p-1 rounded text-xs w-[80px]"
+            className="border p-1 text-xs w-[80px]"
           />
         ))}
+        <button
+          onClick={handleSubmit}
+          className="bg-blue-600 text-white px-4 py-1 text-sm rounded"
+        >
+          입력
+        </button>
       </div>
 
-      {/* 입력 버튼 */}
-      <button
-        onClick={handleSubmit}
-        className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
-      >
-        입력
-      </button>
-
-      {/* 테이블 */}
-      <div className="overflow-x-auto w-full">
-        <table className="text-sm border-collapse mt-4 mx-auto">
-          <thead>
-            <tr>
-              {fields.map((key) => (
-                <th key={key} className="border px-2 py-1 whitespace-nowrap">{key}</th>
-              ))}
-              <th className="border px-2 py-1">수정</th>
-              <th className="border px-2 py-1">삭제</th>
-            </tr>
-          </thead>
-          <tbody>
-            {specs.map((spec) => (
-              <tr key={spec.key} className="text-center">
-                {fields.map((key) => (
-                  <td key={key} className="border px-2 py-1 whitespace-nowrap">{spec[key] || ''}</td>
-                ))}
-                <td className="border px-2 py-1">
-                  <button
-                    onClick={() => handleEdit(spec)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    수정
-                  </button>
-                </td>
-                <td className="border px-2 py-1">
-                  <button
-                    onClick={() => handleDelete(spec.key)}
-                    className="text-red-500 hover:underline"
-                  >
-                    삭제
-                  </button>
-                </td>
-              </tr>
+      {/* 리스트 영역 */}
+      <table className="w-full border border-gray-300 text-sm table-fixed">
+        <thead className="bg-gray-100">
+          <tr>
+            {fields.map((field) => (
+              <th key={field.name} className="border p-2 whitespace-nowrap text-xs">
+                {field.label}
+              </th>
             ))}
-          </tbody>
-        </table>
-      </div>
+            <th className="border p-2 text-xs">삭제</th>
+          </tr>
+        </thead>
+        <tbody>
+          {specs.map((spec) => (
+            <tr key={spec.key} className="text-center">
+              {fields.map((field) => (
+                <td key={field.name} className="border p-2 text-xs whitespace-nowrap">
+                  {spec[field.name] || ''}
+                </td>
+              ))}
+              <td className="border p-2">
+                <button
+                  onClick={() => handleDelete(spec.key)}
+                  className="text-red-500 hover:underline text-xs"
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </main>
   );
 }
