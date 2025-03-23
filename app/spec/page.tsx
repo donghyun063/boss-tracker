@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, push, onValue, remove } from 'firebase/database';
+import { ref, push, onValue, remove, set } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -10,6 +10,7 @@ export default function SpecPage() {
   const router = useRouter();
   const [form, setForm] = useState<any>({});
   const [specs, setSpecs] = useState<any[]>([]);
+  const [editKey, setEditKey] = useState<string | null>(null); // ✅ 수정용 key 저장
 
   const fields = [
     { name: 'id', label: '아이디' },
@@ -58,12 +59,24 @@ export default function SpecPage() {
   };
 
   const handleSubmit = async () => {
-    await push(ref(database, 'specs'), form);
+    if (editKey) {
+      await set(ref(database, `specs/${editKey}`), form);
+      setEditKey(null);
+    } else {
+      await push(ref(database, 'specs'), form);
+    }
     setForm({});
+  };
+
+  const handleEdit = (spec: any) => {
+    const { key, ...rest } = spec;
+    setForm(rest);
+    setEditKey(key);
   };
 
   const handleDelete = async (key: string) => {
     await remove(ref(database, `specs/${key}`));
+    if (editKey === key) setEditKey(null);
   };
 
   return (
@@ -77,7 +90,7 @@ export default function SpecPage() {
 
       <h1 className="text-xl font-bold mb-4">📝 스펙 입력</h1>
 
-      {/* 입력 영역 1줄 */}
+      {/* 입력 영역 */}
       <div className="w-full overflow-hidden mb-4">
         <div className="flex flex-wrap gap-1 justify-start">
           {fields.map((field) => (
@@ -94,7 +107,7 @@ export default function SpecPage() {
             onClick={handleSubmit}
             className="bg-blue-600 text-white px-3 py-1 text-sm rounded"
           >
-            입력
+            {editKey ? '수정 완료' : '입력'}
           </button>
         </div>
       </div>
@@ -109,6 +122,7 @@ export default function SpecPage() {
                   {field.label}
                 </th>
               ))}
+              <th className="border p-2">수정</th>
               <th className="border p-2">삭제</th>
             </tr>
           </thead>
@@ -120,6 +134,14 @@ export default function SpecPage() {
                     {spec[field.name] || ''}
                   </td>
                 ))}
+                <td className="border px-3 py-1">
+                  <button
+                    onClick={() => handleEdit(spec)}
+                    className="text-blue-500 hover:underline"
+                  >
+                    수정
+                  </button>
+                </td>
                 <td className="border px-3 py-1">
                   <button
                     onClick={() => handleDelete(spec.key)}
