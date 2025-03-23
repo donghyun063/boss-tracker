@@ -1,11 +1,10 @@
 'use client';
 
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, onValue } from 'firebase/database';
-import { onAuthStateChanged } from 'firebase/auth'; // ✅ 추가
-import { database, auth } from '@/lib/firebase';     // ✅ auth 추가
+import { ref, onValue, get } from 'firebase/database';
+import { onAuthStateChanged } from 'firebase/auth';
+import { database, auth } from '@/lib/firebase';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -18,38 +17,51 @@ export default function Dashboard() {
     type: '입금' | '출금';
   }[]>([]);
   const [itemRecords, setItemRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // ✅ 로그인 상태 확인 후, 로그인 안되어있으면 /login으로 이동
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push('/login');
+        return;
       }
-    });
 
-    const bossRef = ref(database, 'boss-records');
-    onValue(bossRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
-      const parsed = Object.entries(data).map(([key, value]: any) => ({
-        key,
-        ...value,
-      }));
-      setRecords(parsed.reverse());
+      const userRef = ref(database, `users/${user.uid}`);
+      const snapshot = await get(userRef);
+      const userInfo = snapshot.val();
 
-      const filteredItems = parsed.filter((record: any) =>
-        record.dropItems?.some((item: string) => !item.includes('희비')) && !record.winner
-      );
-      setItemRecords(filteredItems);
-    });
+      if (!userInfo || !userInfo.approval) {
+        alert('관리자 승인이 필요합니다.');
+        router.push('/login');
+        return;
+      }
 
-    const fundRef = ref(database, 'boss-fund');
-    onValue(fundRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
-      const parsed = Object.values(data) as typeof funds;
-      parsed.sort((a, b) => parseInt(b.date) - parseInt(a.date)).reverse();
-      setFunds(parsed);
+      setLoading(false); // 승인된 사용자만 이 아래 코드 실행
+
+      const bossRef = ref(database, 'boss-records');
+      onValue(bossRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        const parsed = Object.entries(data).map(([key, value]: any) => ({
+          key,
+          ...value,
+        }));
+        setRecords(parsed.reverse());
+
+        const filteredItems = parsed.filter((record: any) =>
+          record.dropItems?.some((item: string) => !item.includes('희비')) && !record.winner
+        );
+        setItemRecords(filteredItems);
+      });
+
+      const fundRef = ref(database, 'boss-fund');
+      onValue(fundRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        const parsed = Object.values(data) as typeof funds;
+        parsed.sort((a, b) => parseInt(b.date) - parseInt(a.date)).reverse();
+        setFunds(parsed);
+      });
     });
 
     return () => unsubscribeAuth();
@@ -86,6 +98,8 @@ export default function Dashboard() {
   const heebiCount = records.reduce((count, record) => {
     return count + (record.dropItems?.filter((item: string) => item.includes('희비')).length || 0);
   }, 0);
+
+  if (loading) return <div className="text-center p-10">로딩 중...</div>;
 
   return (
     <main className="flex flex-col items-center p-10 space-y-6 bg-gray-50 min-h-screen">

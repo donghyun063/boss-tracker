@@ -29,17 +29,19 @@ export default function SignupPage() {
       alert('로그인이 필요합니다.');
       return;
     }
-
-    // Firebase Realtime Database에 저장
+  
+    // Firebase에 저장할 추가 정보
     await set(ref(database, `users/${user.uid}`), {
       email: user.email,
       ...form,
+      approval: false,  // ✅ 미승인 상태
+      role: "pending",  // ✅ 권한 미확정 상태
     });
-
-    alert('가입이 완료되었습니다!');
-    router.push('/'); // 대시보드로 이동
+  
+    alert('가입이 완료되었습니다! 승인 대기 중입니다.');
+    router.push('/'); // 혹은 승인 전 전용 페이지로 리다이렉트 가능
   };
-
+  
   return (
     <main className="p-10 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">추가 정보 입력</h1>
