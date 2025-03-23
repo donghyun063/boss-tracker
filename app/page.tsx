@@ -1,9 +1,8 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ref, onValue } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth'; // ✅ 추가
+import { database, auth } from '@/lib/firebase';     // ✅ auth 추가
 
 export default function Dashboard() {
   const router = useRouter();
@@ -18,6 +17,13 @@ export default function Dashboard() {
   const [itemRecords, setItemRecords] = useState<any[]>([]);
 
   useEffect(() => {
+    // ✅ 로그인 상태 확인 후, 로그인 안되어있으면 /login으로 이동
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push('/login');
+      }
+    });
+
     const bossRef = ref(database, 'boss-records');
     onValue(bossRef, (snapshot) => {
       const data = snapshot.val();
@@ -42,6 +48,8 @@ export default function Dashboard() {
       parsed.sort((a, b) => parseInt(b.date) - parseInt(a.date)).reverse();
       setFunds(parsed);
     });
+
+    return () => unsubscribeAuth();
   }, []);
 
   const getDateKey = (dateStr: string): number => {
