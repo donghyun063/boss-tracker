@@ -12,11 +12,27 @@ export default function SpecPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fields = [
-    'def', 'reduction', 'collection', 'weapon', 'top', 'gloves', 'shoes', 'helmet', 'necklace',
-    'ring', 'belt', 'leg', 'cape', 'sigil',
-    ...Array.from({ length: 10 }, (_, i) => `sp${i + 1}`)
-  ];
+  // 입력 필드와 한글 라벨 정의
+  const fieldLabels: { [key: string]: string } = {
+    id: '아이디',
+    def: '방어',
+    reduction: '리덕',
+    collection: '템컬렉',
+    weapon: '무기',
+    top: '상의',
+    gloves: '장갑',
+    shoes: '신발',
+    helmet: '투구',
+    necklace: '목걸이',
+    ring: '반지',
+    belt: '벨트',
+    leg: '각반',
+    cape: '망토',
+    sigil: '시길',
+    ...Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`sp${i + 1}`, `영스${i + 1}`]),
+  )};
+
+  const fields = Object.keys(fieldLabels); // 전체 필드 순서 유지
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -78,13 +94,13 @@ export default function SpecPage() {
       <div className="flex flex-wrap gap-x-2 gap-y-4 text-xs">
         {fields.map((key) => (
           <div key={key} className="flex flex-col items-center">
-            <label className="mb-1 font-semibold">{key.toUpperCase()}</label>
+            <label className="mb-1 font-semibold">{fieldLabels[key]}</label>
             <input
               name={key}
               value={form[key] || ''}
               onChange={handleChange}
               className="border p-1 rounded w-20 text-center"
-              placeholder={key}
+              placeholder={fieldLabels[key]}
             />
           </div>
         ))}
