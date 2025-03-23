@@ -105,6 +105,7 @@ export default function Dashboard() {
         <div className="flex gap-2">
        
           <button onClick={() => router.push('/spec')} className="bg-orange-500 text-white px-4 py-2 rounded text-sm">📋 스펙 현황</button>
+          <button onClick={() => router.push('/soul')} className="bg-indigo-500 text-white px-4 py-2 rounded text-sm">  🧿 집혼현황</button>
           <button onClick={() => router.push('/record')} className="bg-green-600 text-white px-4 py-2 rounded text-sm">+ 보스참여자 입력</button>
           <button onClick={() => router.push('/fund')} className="bg-blue-500 text-white px-4 py-2 rounded text-sm">💰 혈비 관리</button>
           <button onClick={() => router.push('/item-bid')} className="bg-purple-500 text-white px-4 py-2 rounded text-sm">📦 아이템 보유/입찰</button>
