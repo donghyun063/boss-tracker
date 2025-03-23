@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, set, get } from 'firebase/database';
+import { ref, get, set, update, remove } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -14,10 +14,8 @@ const bosses = [
 
 export default function SoulPage() {
   const router = useRouter();
-  const [form, setForm] = useState<{ [key: string]: boolean | string }>({});
-  const [uid, setUid] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [savedList, setSavedList] = useState<any[]>([]);
+  const [form, setForm] = useState<{ [key: string]: boolean | string }>({ id: '' });
+  const [records, setRecords] = useState<any[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -26,17 +24,11 @@ export default function SoulPage() {
         return;
       }
 
-      setUid(user.uid);
-      const snapshot = await get(ref(database, `soul/${user.uid}`));
+      const snapshot = await get(ref(database, 'soul'));
       const data = snapshot.val();
-      if (data) setForm(data);
-      setLoading(false);
-
-      const listSnapshot = await get(ref(database, 'soul'));
-      const listData = listSnapshot.val();
-      if (listData) {
-        const parsed = Object.entries(listData).map(([key, value]: any) => ({ id: key, ...value }));
-        setSavedList(parsed);
+      if (data) {
+        const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
+        setRecords(parsed);
       }
     });
 
@@ -44,43 +36,46 @@ export default function SoulPage() {
   }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, type, checked, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
   const handleSubmit = async () => {
-    if (!uid) return;
-    await set(ref(database, `soul/${uid}`), form);
-    alert('온 보유 현황이 저장되었습니다.');
-
-    const listSnapshot = await get(ref(database, 'soul'));
-    const listData = listSnapshot.val();
-    if (listData) {
-      const parsed = Object.entries(listData).map(([key, value]: any) => ({ id: key, ...value }));
-      setSavedList(parsed);
+    if (!form.id) return alert('아이디를 입력해주세요.');
+    await set(ref(database, `soul/${form.id}`), form);
+    alert('저장 완료!');
+    setForm({ id: '' });
+    bosses.forEach((boss) => (form[boss] = false));
+    const snapshot = await get(ref(database, 'soul'));
+    const data = snapshot.val();
+    if (data) {
+      const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
+      setRecords(parsed);
     }
   };
 
-  if (loading) return <div className="p-10 text-center">로딩 중...</div>;
+  const handleEdit = (record: any) => {
+    const copy = { ...record };
+    delete copy.key;
+    setForm(copy);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+    await remove(ref(database, `soul/${id}`));
+    setRecords((prev) => prev.filter((r) => r.key !== id));
+  };
 
   return (
-    <main className="flex flex-col items-center p-10 space-y-6">
-      <button
-        onClick={() => router.push('/')}
-        className="text-sm text-blue-600 underline hover:text-blue-800 self-start"
-      >
-        ← 대시보드로 돌아가기
-      </button>
-
-      <h1 className="text-xl font-bold mb-4">📋 혼 보유 현황 입력</h1>
-
-      <div className="flex flex-wrap gap-2 items-center mb-4">
+    <main className="p-10">
+      <h1 className="text-xl font-bold mb-4">🧠 혼 보유 현황 입력</h1>
+      <div className="flex flex-wrap gap-2 items-center mb-6">
         <input
           name="id"
-          value={String(form['id'] || '')}
+          value={form['id'] || ''}
           onChange={handleChange}
           placeholder="아이디"
           className="border px-2 py-1 rounded w-32 text-sm"
@@ -104,31 +99,46 @@ export default function SoulPage() {
         </button>
       </div>
 
-      {/* 리스트 표시 */}
-      <div className="overflow-x-auto">
-        <table className="text-sm border-collapse">
-          <thead>
-            <tr>
-              <th className="border px-2 py-1">아이디</th>
-              {bosses.map((boss) => (
-                <th key={boss} className="border px-2 py-1 whitespace-nowrap">{boss}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {savedList.map((entry) => (
-              <tr key={entry.id}>
-                <td className="border px-2 py-1 text-center">{entry.id}</td>
-                {bosses.map((boss) => (
-                  <td key={boss} className="border px-2 py-1 text-center">
-                    {entry[boss] ? '✔️' : ''}
-                  </td>
-                ))}
-              </tr>
+      <table className="border text-sm w-full table-auto">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border px-2 py-1">아이디</th>
+            {bosses.map((boss) => (
+              <th key={boss} className="border px-2 py-1 whitespace-nowrap">{boss}</th>
             ))}
-          </tbody>
-        </table>
-      </div>
+            <th className="border px-2 py-1">수정</th>
+            <th className="border px-2 py-1">삭제</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((record) => (
+            <tr key={record.key} className="text-center">
+              <td className="border px-2 py-1">{record.id}</td>
+              {bosses.map((boss) => (
+                <td key={boss} className="border px-2 py-1">
+                  {record[boss] ? '✔️' : ''}
+                </td>
+              ))}
+              <td className="border px-2 py-1">
+                <button
+                  onClick={() => handleEdit(record)}
+                  className="text-blue-600 hover:underline"
+                >
+                  수정
+                </button>
+              </td>
+              <td className="border px-2 py-1">
+                <button
+                  onClick={() => handleDelete(record.id)}
+                  className="text-red-600 hover:underline"
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </main>
   );
 }
