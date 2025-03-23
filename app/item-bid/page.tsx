@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, onValue, update } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { ref, onValue, update, get } from 'firebase/database';
+import { auth, database } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function ItemBidPage() {
   const router = useRouter();
@@ -12,8 +13,28 @@ export default function ItemBidPage() {
   const [activeInput, setActiveInput] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState<Record<string, string>>({});
   const [winners, setWinners] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const userRef = ref(database, `users/${user.uid}`);
+      const snapshot = await get(userRef);
+      const userInfo = snapshot.val();
+
+      if (!userInfo || !userInfo.approval) {
+        alert('관리자 승인이 필요합니다.');
+        router.push('/login');
+        return;
+      }
+
+      setLoading(false);
+    });
+
     const bossRef = ref(database, 'boss-records');
     onValue(bossRef, (snapshot) => {
       const data = snapshot.val();
@@ -40,7 +61,9 @@ export default function ItemBidPage() {
       setBids(bidsData);
       setWinners(winnersData);
     });
-  }, []);
+
+    return () => unsubscribe();
+  }, [router]);
 
   const handleInputChange = (key: string, value: string) => {
     setInputValue((prev) => ({ ...prev, [key]: value }));
@@ -77,6 +100,8 @@ export default function ItemBidPage() {
     await update(ref(database, `boss-records/${key}`), { winner: name });
   };
 
+  if (loading) return <div className="text-center p-10">로딩 중...</div>;
+
   return (
     <main className="flex flex-col items-center p-10 space-y-6 bg-gray-50 min-h-screen">
       <div className="w-full max-w-6xl mb-4">
@@ -112,61 +137,57 @@ export default function ItemBidPage() {
             </thead>
             <tbody>
               {records.map((record) => (
-                <>
-                  <tr key={record.key} className="text-center">
-                    <td className="border p-2 whitespace-nowrap">{record.bossName}</td>
-                    <td className="border p-2 whitespace-nowrap">{record.date}</td>
-                    <td className="border p-2 text-left">{record.participants?.join(', ')}</td>
-                    <td className="border p-2 text-left">
-                      {record.dropItems
-                        .filter((item: string) => !item.includes('희비'))
-                        .join(', ')}
-                    </td>
-                    <td className="border p-2 text-left align-top">
-                      <div className="flex gap-1 items-center mb-2">
-                        <input
-                          type="text"
-                          value={inputValue[record.key] || ''}
-                          onChange={(e) => handleInputChange(record.key, e.target.value)}
-                          className="border px-2 py-1 rounded w-24 text-sm"
-                          placeholder="이름 입력"
-                        />
-                        <button
-                          onClick={() => handleBidSubmit(record.key)}
-                          className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
-                        >
-                          입찰
-                        </button>
-                        <button
-                          onClick={() => handleCancelBid(record.key)}
-                          className="bg-red-500 text-white px-2 py-1 rounded text-xs"
-                        >
-                          취소
-                        </button>
-                        <button
-                          onClick={() => handleSetWinner(record.key)}
-                          className="bg-green-600 text-white px-2 py-1 rounded text-xs"
-                        >
-                          낙찰
-                        </button>
+                <tr key={record.key} className="text-center">
+                  <td className="border p-2 whitespace-nowrap">{record.bossName}</td>
+                  <td className="border p-2 whitespace-nowrap">{record.date}</td>
+                  <td className="border p-2 text-left">{record.participants?.join(', ')}</td>
+                  <td className="border p-2 text-left">
+                    {record.dropItems.filter((item: string) => !item.includes('희비')).join(', ')}
+                  </td>
+                  <td className="border p-2 text-left align-top">
+                    <div className="flex gap-1 items-center mb-2">
+                      <input
+                        type="text"
+                        value={inputValue[record.key] || ''}
+                        onChange={(e) => handleInputChange(record.key, e.target.value)}
+                        className="border px-2 py-1 rounded w-24 text-sm"
+                        placeholder="이름 입력"
+                      />
+                      <button
+                        onClick={() => handleBidSubmit(record.key)}
+                        className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                      >
+                        입찰
+                      </button>
+                      <button
+                        onClick={() => handleCancelBid(record.key)}
+                        className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={() => handleSetWinner(record.key)}
+                        className="bg-green-600 text-white px-2 py-1 rounded text-xs"
+                      >
+                        낙찰
+                      </button>
+                    </div>
+                    {(bids[record.key]?.length > 0 || winners[record.key]) && (
+                      <div className="text-sm">
+                        {bids[record.key]?.length > 0 && (
+                          <div className="mb-1">
+                            <strong>입찰자:</strong> {bids[record.key].join(', ')}
+                          </div>
+                        )}
+                        {winners[record.key] && (
+                          <div>
+                            <strong className="text-green-700">낙찰자:</strong> {winners[record.key]}
+                          </div>
+                        )}
                       </div>
-                      {(bids[record.key]?.length > 0 || winners[record.key]) && (
-                        <div className="text-sm">
-                          {bids[record.key]?.length > 0 && (
-                            <div className="mb-1">
-                              <strong>입찰자:</strong> {bids[record.key].join(', ')}
-                            </div>
-                          )}
-                          {winners[record.key] && (
-                            <div>
-                              <strong className="text-green-700">낙찰자:</strong> {winners[record.key]}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                </>
+                    )}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

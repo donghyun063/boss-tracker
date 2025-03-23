@@ -2,31 +2,50 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, push, onValue, remove, set } from 'firebase/database';
-import { database } from '@/lib/firebase';
+import { ref, push, onValue, get } from 'firebase/database';
+import { auth, database } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function RecordPage() {
   const router = useRouter();
-
   const [bossName, setBossName] = useState('');
   const [rawDate, setRawDate] = useState('');
   const [participants, setParticipants] = useState('');
   const [dropItems, setDropItems] = useState('');
   const [records, setRecords] = useState<any[]>([]);
-  const [editKey, setEditKey] = useState<string | null>(null);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const bossRef = ref(database, 'boss-records');
-    onValue(bossRef, (snapshot) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const userRef = ref(database, `users/${user.uid}`);
+      const snapshot = await get(userRef);
+      const userInfo = snapshot.val();
+
+      if (!userInfo || !userInfo.approval) {
+        alert('관리자 승인이 필요합니다.');
+        router.push('/login');
+        return;
+      }
+
+      setLoading(false);
+    });
+
+    const recordRef = ref(database, 'boss-records');
+    onValue(recordRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) return;
-      const parsed = Object.entries(data).map(([key, value]: any) => ({
-        key,
-        ...value,
-      }));
+      const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
       setRecords(parsed.reverse());
     });
-  }, []);
+
+    return () => unsubscribe();
+  }, [router]);
 
   const parseDateString = (str: string) => {
     if (str.length !== 8) return '잘못된 형식';
@@ -42,49 +61,45 @@ export default function RecordPage() {
     const regex = /\d{4}년 (\d{1,2})월 (\d{1,2})일 (\d{1,2})시 (\d{1,2})분/;
     const match = formatted.match(regex);
     if (!match) return '';
-    const [ , mm, dd, hh, mi ] = match;
+    const [, mm, dd, hh, mi] = match;
     return `${mm.padStart(2, '0')}${dd.padStart(2, '0')}${hh.padStart(2, '0')}${mi.padStart(2, '0')}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const newRecord = {
       bossName,
       date: parseDateString(rawDate),
-      participants: participants.split(',').map(p => p.trim()).filter(Boolean),
-      dropItems: dropItems.split(',').map(i => i.trim()).filter(Boolean),
+      participants: participants.split(',').map((p) => p.trim()),
+      dropItems: dropItems.split(',').map((i) => i.trim()),
     };
 
-    try {
-      if (editKey) {
-        await set(ref(database, `boss-records/${editKey}`), newRecord);
-        setEditKey(null);
-      } else {
-        await push(ref(database, 'boss-records'), newRecord);
-      }
-      setBossName('');
-      setRawDate('');
-      setParticipants('');
-      setDropItems('');
-    } catch (error) {
-      console.error(error);
-      alert('저장 실패');
+    if (editIndex !== null) {
+      const updated = [...records];
+      updated[editIndex] = newRecord;
+      setRecords(updated);
+      setEditIndex(null);
+    } else {
+      const recordRef = ref(database, 'boss-records');
+      await push(recordRef, newRecord);
     }
+
+    setBossName('');
+    setRawDate('');
+    setParticipants('');
+    setDropItems('');
   };
 
-  const handleEdit = (key: string, record: any) => {
+  const handleEdit = (index: number) => {
+    const record = records[index];
     setBossName(record.bossName);
     setRawDate(convertToRawDate(record.date));
-    setParticipants(Array.isArray(record.participants) ? record.participants.join(', ') : '');
-    setDropItems(Array.isArray(record.dropItems) ? record.dropItems.join(', ') : '');
-    setEditKey(key);
+    setParticipants(record.participants.join(', '));
+    setDropItems(record.dropItems.join(', '));
+    setEditIndex(index);
   };
 
-  const handleDelete = async (key: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    await remove(ref(database, `boss-records/${key}`));
-  };
+  if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
     <main className="flex flex-col items-center p-10 space-y-8">
@@ -132,7 +147,7 @@ export default function RecordPage() {
           type="submit"
           className="w-full bg-blue-600 text-white p-2 rounded"
         >
-          {editKey ? '수정 완료' : '기록 저장'}
+          {editIndex !== null ? '수정 완료' : '기록 저장'}
         </button>
       </form>
 
@@ -146,30 +161,21 @@ export default function RecordPage() {
               <th className="border p-2">참여자</th>
               <th className="border p-2">드롭 아이템</th>
               <th className="border p-2">수정</th>
-              <th className="border p-2">삭제</th>
             </tr>
           </thead>
           <tbody>
-            {records.map((record) => (
-              <tr key={record.key} className="text-center">
+            {records.map((record, index) => (
+              <tr key={index} className="text-center">
                 <td className="border p-2 whitespace-nowrap">{record.bossName}</td>
                 <td className="border p-2 whitespace-nowrap">{record.date}</td>
-                <td className="border p-2 text-left">{Array.isArray(record.participants) ? record.participants.join(', ') : ''}</td>
-                <td className="border p-2 text-left">{Array.isArray(record.dropItems) ? record.dropItems.join(', ') : ''}</td>
+                <td className="border p-2 text-left">{record.participants.join(', ')}</td>
+                <td className="border p-2 text-left">{record.dropItems.join(', ')}</td>
                 <td className="border p-2">
                   <button
-                    onClick={() => handleEdit(record.key, record)}
+                    onClick={() => handleEdit(index)}
                     className="text-blue-600 hover:underline"
                   >
                     수정
-                  </button>
-                </td>
-                <td className="border p-2">
-                  <button
-                    onClick={() => handleDelete(record.key)}
-                    className="text-red-600 hover:underline"
-                  >
-                    삭제
                   </button>
                 </td>
               </tr>
