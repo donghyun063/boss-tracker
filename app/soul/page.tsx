@@ -1,121 +1,128 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ref, set, get, onValue } from 'firebase/database';
-import { database, auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
 
-const bossNames = [
-  '메두사', '티미트리스', '사반', '트롬바', '베히모스', '탈라킨', '체르투바', '판드',
-  '카탄', '사르카', '마투라', '엔쿠라', '템페스트', '톨크루마', '가레스', '브레카',
-  '탈킨', '스탄', '오크', '바실라', '란도르', '글라키', '히실로메', '망각의거울',
-  '실라', '무프', '노르무스', '우칸바'
+const bosses = [
+  '메두사', '티미트리스', '사반', '트롬바', '베히모스', '탈라킨', '체르투바',
+  '판드', '카탄', '사르카', '마투라', '엔쿠라', '템페스트', '톨크루마', '가레스',
+  '브레카', '탈킨', '스탄', '오크', '바실라', '란도르', '글라키', '히실로메',
+  '망각의거울', '실라', '무프', '노르무스', '우칸바'
 ];
 
 export default function SoulPage() {
-  const router = useRouter();
-  const [uid, setUid] = useState('');
-  const [name, setName] = useState('');
-  const [checkedBosses, setCheckedBosses] = useState<Record<string, boolean>>({});
-  const [souls, setSouls] = useState<any[]>([]);
+  const [form, setForm] = useState<{ id: string; [key: string]: boolean }>({ id: '' });
+  const [list, setList] = useState<any[]>([]);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      setUid(user.uid);
+    const saved = localStorage.getItem('soul_list');
+    if (saved) {
+      setList(JSON.parse(saved));
+    }
+  }, []);
 
-      const userRef = ref(database, `users/${user.uid}`);
-      const snapshot = await get(userRef);
-      const userInfo = snapshot.val();
-      setName(userInfo?.nickname || '');
-    });
+  useEffect(() => {
+    localStorage.setItem('soul_list', JSON.stringify(list));
+  }, [list]);
 
-    const soulRef = ref(database, 'soul');
-    onValue(soulRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) return;
-      const parsed = Object.entries(data).map(([key, value]: any) => ({
-        id: key,
-        ...value,
-      }));
-      setSouls(parsed);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  const handleCheckbox = (boss: string) => {
-    setCheckedBosses((prev) => ({
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, type, checked, value } = e.target;
+    setForm(prev => ({
       ...prev,
-      [boss]: !prev[boss]
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const handleSubmit = async () => {
-    if (!uid || !name) return;
-    await set(ref(database, `soul/${uid}`), {
-      name,
-      ...checkedBosses
-    });
-    alert('집혼 현황이 저장되었습니다.');
+  const handleSubmit = () => {
+    if (!form.id) return alert('아이디를 입력하세요.');
+    if (editIndex !== null) {
+      const updated = [...list];
+      updated[editIndex] = form;
+      setList(updated);
+      setEditIndex(null);
+    } else {
+      setList(prev => [...prev, form]);
+    }
+    setForm({ id: '' });
+  };
+
+  const handleEdit = (index: number) => {
+    setForm(list[index]);
+    setEditIndex(index);
+  };
+
+  const handleDelete = (index: number) => {
+    const updated = [...list];
+    updated.splice(index, 1);
+    setList(updated);
   };
 
   return (
-    <main className="flex flex-col items-center p-10 space-y-6">
+    <main className="p-6">
       <button
-        onClick={() => router.push('/')}
-        className="text-sm text-blue-600 underline hover:text-blue-800 self-start"
+        onClick={() => window.history.back()}
+        className="text-sm text-blue-600 underline mb-4 block"
       >
         ← 대시보드로 돌아가기
       </button>
 
-      <h1 className="text-2xl font-bold">🧿 집혼 현황 입력</h1>
+      <h1 className="text-xl font-bold mb-4">🧿 집혼 현황</h1>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-2">
-        {bossNames.map((boss) => (
-          <label key={boss} className="flex items-center space-x-2 text-sm">
+      <div className="flex flex-wrap gap-2 items-center mb-4">
+        <input
+          type="text"
+          name="id"
+          value={form.id || ''}
+          onChange={handleChange}
+          placeholder="아이디"
+          className="border px-2 py-1 rounded w-28"
+        />
+        {bosses.map(boss => (
+          <label key={boss} className="text-sm flex items-center gap-1">
             <input
               type="checkbox"
-              checked={checkedBosses[boss] || false}
-              onChange={() => handleCheckbox(boss)}
+              name={boss}
+              checked={form[boss] || false}
+              onChange={handleChange}
             />
-            <span>{boss}</span>
+            {boss}
           </label>
         ))}
+        <button
+          onClick={handleSubmit}
+          className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+        >
+          입력
+        </button>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        입력
-      </button>
-
-      <h2 className="text-xl font-semibold mt-10">📝 집혼 보유자 리스트</h2>
-
-      <div className="overflow-x-auto w-full max-w-7xl">
-        <table className="w-full border border-gray-300 text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="border p-2">닉네임</th>
-              {bossNames.map((boss) => (
-                <th key={boss} className="border p-2 whitespace-nowrap">{boss}</th>
+      <div className="overflow-x-auto">
+        <table className="table-auto border-collapse border border-gray-300 text-sm">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-1 whitespace-nowrap">아이디</th>
+              {bosses.map(boss => (
+                <th key={boss} className="border p-1 whitespace-nowrap">{boss}</th>
               ))}
+              <th className="border p-1 whitespace-nowrap">수정</th>
+              <th className="border p-1 whitespace-nowrap">삭제</th>
             </tr>
           </thead>
           <tbody>
-            {souls.map((user) => (
-              <tr key={user.id} className="text-center">
-                <td className="border p-2">{user.name}</td>
-                {bossNames.map((boss) => (
-                  <td key={boss} className="border p-2">
+            {list.map((user, index) => (
+              <tr key={index} className="text-center">
+                <td className="border p-1 whitespace-nowrap">{user.id}</td>
+                {bosses.map(boss => (
+                  <td key={boss} className="border p-1 whitespace-nowrap">
                     {user[boss] ? '✅' : ''}
                   </td>
                 ))}
+                <td className="border p-1">
+                  <button onClick={() => handleEdit(index)} className="text-blue-600 hover:underline">수정</button>
+                </td>
+                <td className="border p-1">
+                  <button onClick={() => handleDelete(index)} className="text-red-600 hover:underline">삭제</button>
+                </td>
               </tr>
             ))}
           </tbody>
