@@ -109,6 +109,7 @@ export default function Dashboard() {
           <button onClick={() => router.push('/record')} className="bg-green-600 text-white px-4 py-2 rounded text-sm">+ 보스참여자 입력</button>
           <button onClick={() => router.push('/fund')} className="bg-blue-500 text-white px-4 py-2 rounded text-sm">💰 혈비 관리</button>
           <button onClick={() => router.push('/item-bid')} className="bg-purple-500 text-white px-4 py-2 rounded text-sm">📦 아이템 보유/입찰</button>
+          <button onClick={() => router.push('/item-distribute')} className="bg-yellow-500 text-white px-4 py-2 rounded text-sm">🎁 아이템 분배</button>
           {isAdmin && (
             <button onClick={() => router.push('/admin')} className="bg-red-500 text-white px-4 py-2 rounded text-sm">👑 관리자 승인</button>
           )}
