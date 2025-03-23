@@ -54,9 +54,22 @@ export default function AdminPage() {
     const userRef = ref(database, `users/${uid}`);
     await update(userRef, {
       approval: true,
-      role: 'user',
     });
     alert('승인 완료!');
+  };
+
+  const cancelApproval = async (uid: string) => {
+    const userRef = ref(database, `users/${uid}`);
+    await update(userRef, {
+      approval: false,
+    });
+    alert('승인 취소 완료!');
+  };
+
+  const changeRole = async (uid: string, role: string) => {
+    const userRef = ref(database, `users/${uid}`);
+    await update(userRef, { role });
+    alert('권한 변경 완료!');
   };
 
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
@@ -87,15 +100,29 @@ export default function AdminPage() {
               <td className="border px-2 py-1">{user.nickname}</td>
               <td className="border px-2 py-1">{user.approval ? '✅ 승인됨' : '⏳ 대기 중'}</td>
               <td className="border px-2 py-1">{user.role}</td>
-              <td className="border px-2 py-1">
+              <td className="border px-2 py-1 space-x-1">
                 {!user.approval && (
                   <button
-                    className="px-3 py-1 bg-blue-600 text-white rounded"
+                    className="px-2 py-1 bg-blue-600 text-white rounded"
                     onClick={() => approveUser(uid)}
                   >
-                    승인하기
+                    승인
                   </button>
                 )}
+                {user.approval && (
+                  <button
+                    className="px-2 py-1 bg-gray-500 text-white rounded"
+                    onClick={() => cancelApproval(uid)}
+                  >
+                    승인취소
+                  </button>
+                )}
+                <button
+                  className="px-2 py-1 bg-yellow-500 text-white rounded"
+                  onClick={() => changeRole(uid, user.role === 'admin' ? 'user' : 'admin')}
+                >
+                  {user.role === 'admin' ? '👤 일반으로' : '👑 관리자'}
+                </button>
               </td>
             </tr>
           ))}
