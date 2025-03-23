@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, push, onValue, remove, update } from 'firebase/database';
+import { ref, push, onValue, set, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
 
 const bosses = [
@@ -14,7 +14,7 @@ const bosses = [
 
 export default function SoulPage() {
   const router = useRouter();
-  const [form, setForm] = useState<{ [key: string]: string | boolean }>({});
+  const [form, setForm] = useState<{ [key: string]: boolean | string }>({ id: '' });
   const [records, setRecords] = useState<any[]>([]);
   const [editKey, setEditKey] = useState<string | null>(null);
 
@@ -24,27 +24,36 @@ export default function SoulPage() {
       const data = snapshot.val();
       if (!data) return;
       const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
-      setRecords(parsed.reverse());
+      setRecords(parsed);
     });
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type, checked, value } = e.target;
-    const val = type === 'checkbox' ? checked : value;
-    setForm((prev) => ({ ...prev, [name]: val }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
   };
 
   const handleSubmit = async () => {
-    if (!form.id) return alert('아이디를 입력해주세요.');
-
-    if (editKey) {
-      await update(ref(database, `soul/${editKey}`), form);
-      setEditKey(null);
-    } else {
-      await push(ref(database, 'soul'), form);
+    if (!form['id']) {
+      alert('아이디를 입력해주세요.');
+      return;
     }
 
-    setForm({});
+    const dataToSave = { ...form };
+    delete dataToSave.key;
+
+    if (editKey) {
+      await set(ref(database, `soul/${editKey}`), dataToSave);
+      setEditKey(null);
+    } else {
+      await push(ref(database, 'soul'), dataToSave);
+    }
+
+    setForm({ id: '' });
+    bosses.forEach((b) => setForm((prev) => ({ ...prev, [b]: false })));
   };
 
   const handleEdit = (record: any) => {
@@ -53,15 +62,14 @@ export default function SoulPage() {
   };
 
   const handleDelete = async (key: string) => {
-    const ok = confirm('정말 삭제하시겠습니까?');
-    if (!ok) return;
+    const confirmDelete = confirm('정말 삭제하시겠습니까?');
+    if (!confirmDelete) return;
     await remove(ref(database, `soul/${key}`));
   };
 
   return (
     <main className="p-10">
-      <h1 className="text-xl font-bold mb-4">📕 혼 보유 현황 입력</h1>
-      
+      <h1 className="text-xl font-bold mb-4">🔮 혼 보유 현황 입력</h1>
       <button
         onClick={() => router.push('/')}
         className="mb-4 text-sm text-blue-600 underline hover:text-blue-800"
@@ -69,15 +77,14 @@ export default function SoulPage() {
         ← 대시보드로 돌아가기
       </button>
 
-      <div className="flex flex-wrap gap-2 items-center mb-4">
+      <div className="flex flex-wrap gap-2 items-center mb-6">
         <input
           name="id"
-          value={form['id'] || ''}
+          value={String(form['id'] || '')}
           onChange={handleChange}
           placeholder="아이디"
           className="border px-2 py-1 rounded w-32 text-sm"
         />
-
         {bosses.map((boss) => (
           <label key={boss} className="text-sm flex items-center gap-1">
             <input
@@ -89,36 +96,36 @@ export default function SoulPage() {
             {boss}
           </label>
         ))}
-
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
-        >
-          {editKey ? '수정 완료' : '입력'}
-        </button>
       </div>
 
-      <table className="border text-sm w-full table-auto">
+      <button
+        onClick={handleSubmit}
+        className="bg-blue-600 text-white px-3 py-1 rounded text-sm"
+      >
+        {editKey ? '수정 완료' : '입력'}
+      </button>
+
+      <table className="border text-sm w-full table-auto mt-6">
         <thead className="bg-gray-200">
           <tr>
-            <th className="border p-2">아이디</th>
+            <th className="border p-1">아이디</th>
             {bosses.map((boss) => (
-              <th key={boss} className="border p-2 whitespace-nowrap">{boss}</th>
+              <th key={boss} className="border p-1">{boss}</th>
             ))}
-            <th className="border p-2">수정</th>
-            <th className="border p-2">삭제</th>
+            <th className="border p-1">수정</th>
+            <th className="border p-1">삭제</th>
           </tr>
         </thead>
         <tbody>
           {records.map((record) => (
             <tr key={record.key} className="text-center">
-              <td className="border p-2">{record.id}</td>
+              <td className="border p-1">{record.id}</td>
               {bosses.map((boss) => (
-                <td key={boss} className="border p-2">
-                  {record[boss] ? '✅' : ''}
+                <td key={boss} className="border p-1">
+                  {record[boss] ? '✔️' : ''}
                 </td>
               ))}
-              <td className="border p-2">
+              <td className="border p-1">
                 <button
                   onClick={() => handleEdit(record)}
                   className="text-blue-600 hover:underline"
@@ -126,7 +133,7 @@ export default function SoulPage() {
                   수정
                 </button>
               </td>
-              <td className="border p-2">
+              <td className="border p-1">
                 <button
                   onClick={() => handleDelete(record.key)}
                   className="text-red-600 hover:underline"
