@@ -2,24 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { ref, get, onValue, update } from 'firebase/database';
+import { ref, onValue, update, get } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
-
-interface UserData {
-  name: string;
-  age: string;
-  phone: string;
-  class: string;
-  nickname: string;
-  email: string;
-  approval: boolean;
-  role: string;
-}
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [users, setUsers] = useState<Record<string, UserData>>({});
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,94 +23,83 @@ export default function AdminPage() {
       const userInfo = snapshot.val();
 
       if (!userInfo || userInfo.role !== 'admin') {
-        alert('관리자만 접근 가능합니다.');
+        alert('접근 권한이 없습니다.');
         router.push('/');
         return;
       }
 
-      const usersRef = ref(database, 'users');
-      onValue(usersRef, (snapshot) => {
-        const data = snapshot.val();
-        setUsers(data || {});
-        setLoading(false);
-      });
+      setLoading(false);
+    });
+
+    const usersRef = ref(database, 'users');
+    onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+      const parsed = Object.entries(data).map(([uid, value]: any) => ({ uid, ...value }));
+      setUsers(parsed);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
-  const approveUser = async (uid: string) => {
-    const userRef = ref(database, `users/${uid}`);
-    await update(userRef, {
-      approval: true,
-    });
-    alert('승인 완료!');
+  const handleApprovalToggle = async (uid: string, approval: boolean) => {
+    await update(ref(database, `users/${uid}`), { approval: !approval });
   };
 
-  const cancelApproval = async (uid: string) => {
-    const userRef = ref(database, `users/${uid}`);
-    await update(userRef, {
-      approval: false,
-    });
-    alert('승인 취소 완료!');
-  };
-
-  const changeRole = async (uid: string, role: string) => {
-    const userRef = ref(database, `users/${uid}`);
-    await update(userRef, { role });
-    alert('권한 변경 완료!');
+  const handleRoleChange = async (uid: string, role: string) => {
+    const newRole = role === 'admin' ? 'user' : 'admin';
+    await update(ref(database, `users/${uid}`), { role: newRole });
   };
 
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <main className="p-10 max-w-6xl mx-auto bg-white shadow rounded">
-      <h1 className="text-2xl font-bold mb-6">가입 요청 승인</h1>
-      <table className="w-full text-sm border border-gray-300">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="border px-2 py-1">이름</th>
-            <th className="border px-2 py-1">이메일</th>
-            <th className="border px-2 py-1">전화번호</th>
-            <th className="border px-2 py-1">클래스</th>
-            <th className="border px-2 py-1">닉네임</th>
-            <th className="border px-2 py-1">승인 상태</th>
-            <th className="border px-2 py-1">권한</th>
-            <th className="border px-2 py-1">작업</th>
+    <main className="flex flex-col items-center p-10 space-y-6">
+      <div className="w-full max-w-6xl mb-4">
+        <button
+          onClick={() => router.push('/')}
+          className="text-sm text-blue-600 underline hover:text-blue-800"
+        >
+          ← 대시보드로 돌아가기
+        </button>
+      </div>
+      <h1 className="text-2xl font-bold">가입 승인 및 권한 관리</h1>
+      <table className="w-full max-w-6xl border border-gray-300 mt-5">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="border p-2">이름</th>
+            <th className="border p-2">아이디</th>
+            <th className="border p-2">전화번호</th>
+            <th className="border p-2">나이</th>
+            <th className="border p-2">클래스</th>
+            <th className="border p-2">닉네임</th>
+            <th className="border p-2">승인</th>
+            <th className="border p-2">권한</th>
           </tr>
         </thead>
         <tbody>
-          {Object.entries(users).map(([uid, user]) => (
-            <tr key={uid} className="text-center">
-              <td className="border px-2 py-1">{user.name}</td>
-              <td className="border px-2 py-1">{user.email}</td>
-              <td className="border px-2 py-1">{user.phone}</td>
-              <td className="border px-2 py-1">{user.class}</td>
-              <td className="border px-2 py-1">{user.nickname}</td>
-              <td className="border px-2 py-1">{user.approval ? '✅ 승인됨' : '⏳ 대기 중'}</td>
-              <td className="border px-2 py-1">{user.role}</td>
-              <td className="border px-2 py-1 space-x-1">
-                {!user.approval && (
-                  <button
-                    className="px-2 py-1 bg-blue-600 text-white rounded"
-                    onClick={() => approveUser(uid)}
-                  >
-                    승인
-                  </button>
-                )}
-                {user.approval && (
-                  <button
-                    className="px-2 py-1 bg-gray-500 text-white rounded"
-                    onClick={() => cancelApproval(uid)}
-                  >
-                    승인취소
-                  </button>
-                )}
+          {users.map((user) => (
+            <tr key={user.uid} className="text-center">
+              <td className="border p-2">{user.name}</td>
+              <td className="border p-2">{user.username}</td>
+              <td className="border p-2">{user.phone}</td>
+              <td className="border p-2">{user.age}</td>
+              <td className="border p-2">{user.class}</td>
+              <td className="border p-2">{user.nickname}</td>
+              <td className="border p-2">
                 <button
-                  className="px-2 py-1 bg-yellow-500 text-white rounded"
-                  onClick={() => changeRole(uid, user.role === 'admin' ? 'user' : 'admin')}
+                  onClick={() => handleApprovalToggle(user.uid, user.approval)}
+                  className={`px-3 py-1 rounded text-sm ${user.approval ? 'bg-red-500 text-white' : 'bg-green-600 text-white'}`}
                 >
-                  {user.role === 'admin' ? '👤 일반으로' : '👑 관리자'}
+                  {user.approval ? '승인 취소' : '승인'}
+                </button>
+              </td>
+              <td className="border p-2">
+                <button
+                  onClick={() => handleRoleChange(user.uid, user.role)}
+                  className="bg-gray-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  {user.role === 'admin' ? '관리자' : '일반'}
                 </button>
               </td>
             </tr>
