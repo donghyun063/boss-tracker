@@ -2,42 +2,45 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, get, push, update, remove } from 'firebase/database';
+import { ref, onValue, push, update, remove } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function SpecPage() {
   const router = useRouter();
   const [form, setForm] = useState<any>({});
-  const [specList, setSpecList] = useState<any[]>([]);
-  const [editKey, setEditKey] = useState<string | null>(null);
-  const [uid, setUid] = useState<string | null>(null);
+  const [uid, setUid] = useState('');
   const [loading, setLoading] = useState(true);
+  const [specs, setSpecs] = useState<any[]>([]);
+  const [editKey, setEditKey] = useState<string | null>(null);
 
   const fields = [
-    '아이디', '레벨', '방어', '리덕', '템컬렉', '무기', '상의', '장갑', '신발', '투구', '목걸이', '반지',
-    '벨트', '각반', '망토', '시길',
+    '아이디', '레벨', '방어', '리덕', '템컬렉', '무기', '상의', '장갑', '신발', '투구', '목걸이',
+    '반지', '벨트', '각반', '망토', '시길',
     ...Array.from({ length: 10 }, (_, i) => `영스${i + 1}`)
   ];
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push('/login');
-        return;
+      } else {
+        setUid(user.uid);
+        setLoading(false);
       }
-      setUid(user.uid);
-      const snapshot = await get(ref(database, 'spec'));
-      const data = snapshot.val();
-      if (data) {
-        const parsed = Object.entries(data).map(([key, value]: any) => ({
-          key,
-          ...value,
-        }));
-        setSpecList(parsed.reverse());
-      }
-      setLoading(false);
     });
+
+    const specRef = ref(database, 'specs');
+    onValue(specRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+      const parsed = Object.entries(data).map(([key, value]: any) => ({
+        key,
+        ...value,
+      }));
+      setSpecs(parsed);
+    });
+
     return () => unsubscribe();
   }, [router]);
 
@@ -48,72 +51,86 @@ export default function SpecPage() {
 
   const handleSubmit = async () => {
     if (editKey) {
-      await update(ref(database, `spec/${editKey}`), form);
+      await update(ref(database, `specs/${editKey}`), form);
       setEditKey(null);
     } else {
-      await push(ref(database, 'spec'), form);
+      await push(ref(database, 'specs'), form);
     }
     setForm({});
   };
 
-  const handleEdit = (item: any) => {
-    setForm(item);
-    setEditKey(item.key);
+  const handleEdit = (spec: any) => {
+    setForm(spec);
+    setEditKey(spec.key);
   };
 
   const handleDelete = async (key: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    await remove(ref(database, `spec/${key}`));
+    if (confirm('삭제하시겠습니까?')) {
+      await remove(ref(database, `specs/${key}`));
+    }
   };
 
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <main className="p-6">
-      <button onClick={() => router.push('/')} className="text-blue-600 underline mb-4">← 대시보드로 돌아가기</button>
+    <main className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <button
+        onClick={() => router.push('/')}
+        className="text-sm text-blue-600 underline hover:text-blue-800"
+      >
+        ← 대시보드로 돌아가기
+      </button>
 
-      <h1 className="text-xl font-bold mb-4">📝 스펙 입력</h1>
+      <h1 className="text-2xl font-bold">📋 스펙 입력</h1>
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {fields.map((key) => (
+      <div className="flex flex-nowrap gap-2 overflow-x-auto">
+        {fields.map((field) => (
           <input
-            key={key}
-            name={key}
-            value={form[key] || ''}
+            key={field}
+            name={field}
+            placeholder={field}
+            value={form[field] || ''}
             onChange={handleChange}
-            placeholder={key}
-            className="border p-1 text-sm w-[110px]"
+            className="border p-1 w-[90px] text-sm rounded"
           />
         ))}
-        <button onClick={handleSubmit} className="bg-blue-600 text-white px-4 py-1 rounded">입력</button>
       </div>
 
-      <table className="border text-sm w-full table-fixed">
-        <thead>
-          <tr>
-            {fields.map((key) => (
-              <th key={key} className="border px-2 py-1 whitespace-nowrap">{key}</th>
-            ))}
-            <th className="border px-2 py-1 whitespace-nowrap">수정</th>
-            <th className="border px-2 py-1 whitespace-nowrap">삭제</th>
-          </tr>
-        </thead>
-        <tbody>
-          {specList.map((item) => (
-            <tr key={item.key}>
-              {fields.map((key) => (
-                <td key={key} className="border px-2 py-1 text-center">{item[key] || ''}</td>
+      <button
+        onClick={handleSubmit}
+        className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+      >
+        {editKey ? '수정 완료' : '입력'}
+      </button>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full border border-gray-300 text-sm text-center">
+          <thead className="bg-gray-100">
+            <tr>
+              {fields.map((field) => (
+                <th key={field} className="border px-2 py-1 whitespace-nowrap">{field}</th>
               ))}
-              <td className="border px-2 py-1 text-center">
-                <button onClick={() => handleEdit(item)} className="text-blue-600 hover:underline">수정</button>
-              </td>
-              <td className="border px-2 py-1 text-center">
-                <button onClick={() => handleDelete(item.key)} className="text-red-600 hover:underline">삭제</button>
-              </td>
+              <th className="border px-2 py-1">수정</th>
+              <th className="border px-2 py-1">삭제</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {specs.map((spec) => (
+              <tr key={spec.key}>
+                {fields.map((field) => (
+                  <td key={field} className="border px-2 py-1 whitespace-nowrap">{spec[field] || ''}</td>
+                ))}
+                <td className="border px-2 py-1">
+                  <button onClick={() => handleEdit(spec)} className="text-blue-600 hover:underline">수정</button>
+                </td>
+                <td className="border px-2 py-1">
+                  <button onClick={() => handleDelete(spec.key)} className="text-red-600 hover:underline">삭제</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
