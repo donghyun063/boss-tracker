@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, push, onValue, get } from 'firebase/database';
+import { ref, push, onValue, get, remove } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -13,7 +13,7 @@ export default function RecordPage() {
   const [participants, setParticipants] = useState('');
   const [dropItems, setDropItems] = useState('');
   const [records, setRecords] = useState<any[]>([]);
-  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editKey, setEditKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,14 +74,12 @@ export default function RecordPage() {
       dropItems: dropItems.split(',').map((i) => i.trim()),
     };
 
-    if (editIndex !== null) {
-      const updated = [...records];
-      updated[editIndex] = newRecord;
-      setRecords(updated);
-      setEditIndex(null);
+    if (editKey) {
+      await push(ref(database, `boss-records`), newRecord);
+      await remove(ref(database, `boss-records/${editKey}`));
+      setEditKey(null);
     } else {
-      const recordRef = ref(database, 'boss-records');
-      await push(recordRef, newRecord);
+      await push(ref(database, 'boss-records'), newRecord);
     }
 
     setBossName('');
@@ -90,13 +88,18 @@ export default function RecordPage() {
     setDropItems('');
   };
 
-  const handleEdit = (index: number) => {
-    const record = records[index];
+  const handleEdit = (record: any) => {
     setBossName(record.bossName);
     setRawDate(convertToRawDate(record.date));
     setParticipants(record.participants.join(', '));
     setDropItems(record.dropItems.join(', '));
-    setEditIndex(index);
+    setEditKey(record.key);
+  };
+
+  const handleDelete = async (key: string) => {
+    if (confirm('정말 삭제하시겠습니까?')) {
+      await remove(ref(database, `boss-records/${key}`));
+    }
   };
 
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
@@ -147,7 +150,7 @@ export default function RecordPage() {
           type="submit"
           className="w-full bg-blue-600 text-white p-2 rounded"
         >
-          {editIndex !== null ? '수정 완료' : '기록 저장'}
+          {editKey ? '수정 완료' : '기록 저장'}
         </button>
       </form>
 
@@ -161,21 +164,30 @@ export default function RecordPage() {
               <th className="border p-2">참여자</th>
               <th className="border p-2">드롭 아이템</th>
               <th className="border p-2">수정</th>
+              <th className="border p-2">삭제</th>
             </tr>
           </thead>
           <tbody>
-            {records.map((record, index) => (
-              <tr key={index} className="text-center">
+            {records.map((record) => (
+              <tr key={record.key} className="text-center">
                 <td className="border p-2 whitespace-nowrap">{record.bossName}</td>
                 <td className="border p-2 whitespace-nowrap">{record.date}</td>
                 <td className="border p-2 text-left">{record.participants.join(', ')}</td>
                 <td className="border p-2 text-left">{record.dropItems.join(', ')}</td>
                 <td className="border p-2">
                   <button
-                    onClick={() => handleEdit(index)}
+                    onClick={() => handleEdit(record)}
                     className="text-blue-600 hover:underline"
                   >
                     수정
+                  </button>
+                </td>
+                <td className="border p-2">
+                  <button
+                    onClick={() => handleDelete(record.key)}
+                    className="text-red-500 hover:underline"
+                  >
+                    삭제
                   </button>
                 </td>
               </tr>
