@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, push, onValue, update,remove } from 'firebase/database';
+import { ref, push, onValue, remove, update } from 'firebase/database';
 import { database } from '@/lib/firebase';
 
 export default function ItemDistributePage() {
@@ -13,16 +13,16 @@ export default function ItemDistributePage() {
     boss: '',
     item: '',
     distributeDate: '',
-    amount: '',
-    type: '입금',
     nickname: '',
+    type: '입금',
+    amount: '',
   });
   const [records, setRecords] = useState<any[]>([]);
   const [editKey, setEditKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const distRef = ref(database, 'item-distribute');
-    onValue(distRef, (snapshot) => {
+    const dataRef = ref(database, 'item-distribute');
+    onValue(dataRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
@@ -37,27 +37,27 @@ export default function ItemDistributePage() {
   };
 
   const handleSubmit = async () => {
-    if (!form.date || !form.boss || !form.item || !form.nickname || !form.amount) {
-      alert('모든 항목을 입력해주세요.');
-      return;
-    }
+    const record = {
+      ...form,
+      amount: parseInt(form.amount) || 0,
+    };
 
-    const newRecord = { ...form };
+    const fundRecord = {
+      date: form.distributeDate,
+      amount: parseInt(form.amount) || 0,
+      memo: `${form.boss} ${form.item} ${form.nickname}`,
+      type: form.type,
+      nickname: form.nickname || '',
+    };
 
     if (editKey) {
-      await update(ref(database, `item-distribute/${editKey}`), newRecord);
+      await update(ref(database, `item-distribute/${editKey}`), record);
+      await push(ref(database, 'boss-fund'), fundRecord);
       setEditKey(null);
     } else {
-      await push(ref(database, 'item-distribute'), newRecord);
+      await push(ref(database, 'item-distribute'), record);
+      await push(ref(database, 'boss-fund'), fundRecord);
     }
-
-    // ✅ 자동 혈비 반영
-    await push(ref(database, 'boss-fund'), {
-      date: form.date,
-      amount: Number(form.amount),
-      type: form.type,
-      note: `[${form.boss}] ${form.item} / ${form.nickname}`,
-    });
 
     setForm({
       date: '',
@@ -65,9 +65,9 @@ export default function ItemDistributePage() {
       boss: '',
       item: '',
       distributeDate: '',
-      amount: '',
-      type: '입금',
       nickname: '',
+      type: '입금',
+      amount: '',
     });
   };
 
@@ -78,8 +78,7 @@ export default function ItemDistributePage() {
 
   const handleDelete = async (key: string) => {
     if (confirm('정말 삭제하시겠습니까?')) {
-        await remove(ref(database, `item-distribute/${key}`));
-
+      await remove(ref(database, `item-distribute/${key}`));
     }
   };
 
@@ -88,28 +87,38 @@ export default function ItemDistributePage() {
       <button onClick={() => router.push('/')} className="text-sm text-blue-600 underline mb-2">
         ← 대시보드로 돌아가기
       </button>
+
       <h1 className="text-xl font-bold">📦 아이템 분배 입력</h1>
 
-      {/* 입력 폼 */}
       <div className="flex flex-wrap gap-2">
-        <input name="date" value={form.date} onChange={handleChange} placeholder="날짜 (예: 0324)" className="border p-1 text-sm w-24" />
-        <input name="time" value={form.time} onChange={handleChange} placeholder="시간 (예: 21:30)" className="border p-1 text-sm w-24" />
-        <input name="boss" value={form.boss} onChange={handleChange} placeholder="보스명" className="border p-1 text-sm w-24" />
-        <input name="item" value={form.item} onChange={handleChange} placeholder="아이템" className="border p-1 text-sm w-32" />
-        <input name="distributeDate" value={form.distributeDate} onChange={handleChange} placeholder="분배날짜" className="border p-1 text-sm w-24" />
-        <input name="nickname" value={form.nickname} onChange={handleChange} placeholder="닉네임" className="border p-1 text-sm w-24" />
-        <input name="amount" value={form.amount} onChange={handleChange} placeholder="금액" className="border p-1 text-sm w-24" />
+        {[
+          { name: 'date', label: '날짜', placeholder: '예: 0324' },
+          { name: 'time', label: '시간', placeholder: '예: 2130' },
+          { name: 'boss', label: '보스명' },
+          { name: 'item', label: '아이템' },
+          { name: 'distributeDate', label: '분배날짜' },
+          { name: 'nickname', label: '닉네임' },
+          { name: 'amount', label: '금액' },
+        ].map(({ name, label, placeholder }) => (
+          <input
+            key={name}
+            name={name}
+            placeholder={placeholder || label}
+            value={form[name] || ''}
+            onChange={handleChange}
+            className="border p-1 text-sm w-24"
+          />
+        ))}
         <select name="type" value={form.type} onChange={handleChange} className="border p-1 text-sm w-20">
           <option value="입금">입금</option>
           <option value="출금">출금</option>
         </select>
-        <button onClick={handleSubmit} className="bg-blue-600 text-white px-3 py-1 text-sm rounded">
+        <button onClick={handleSubmit} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">
           {editKey ? '수정 완료' : '입력'}
         </button>
       </div>
 
-      {/* 출력 리스트 */}
-      <table className="w-full mt-6 text-sm border border-gray-300">
+      <table className="w-full text-sm border mt-6 table-auto">
         <thead className="bg-gray-100">
           <tr>
             <th className="border p-2">날짜</th>
@@ -117,9 +126,9 @@ export default function ItemDistributePage() {
             <th className="border p-2">보스</th>
             <th className="border p-2">아이템</th>
             <th className="border p-2">분배날짜</th>
-            <th className="border p-2">닉네임</th>
             <th className="border p-2">금액</th>
-            <th className="border p-2">입출금</th>
+            <th className="border p-2">닉네임</th>
+            <th className="border p-2">유형</th>
             <th className="border p-2">수정</th>
             <th className="border p-2">삭제</th>
           </tr>
@@ -132,11 +141,15 @@ export default function ItemDistributePage() {
               <td className="border p-1">{r.boss}</td>
               <td className="border p-1">{r.item}</td>
               <td className="border p-1">{r.distributeDate}</td>
+              <td className="border p-1">{r.amount?.toLocaleString()}</td>
               <td className="border p-1">{r.nickname}</td>
-              <td className="border p-1">{r.amount}</td>
               <td className="border p-1">{r.type}</td>
-              <td className="border p-1 text-blue-600 cursor-pointer" onClick={() => handleEdit(r)}>수정</td>
-              <td className="border p-1 text-red-500 cursor-pointer" onClick={() => handleDelete(r.key)}>삭제</td>
+              <td className="border p-1">
+                <button onClick={() => handleEdit(r)} className="text-blue-600 hover:underline">수정</button>
+              </td>
+              <td className="border p-1">
+                <button onClick={() => handleDelete(r.key)} className="text-red-500 hover:underline">삭제</button>
+              </td>
             </tr>
           ))}
         </tbody>
