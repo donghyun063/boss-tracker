@@ -1,81 +1,70 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ref, get, set, update, remove } from 'firebase/database';
-import { auth, database } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { ref, push, onValue, set, remove } from 'firebase/database';
+import { database } from '@/lib/firebase';
 
 const bosses = [
-  '메두사', '티미트리스', '사반', '펠리스', '트롬바', '베히모스', '탈라킨', '체르투바', '판드', '카탄', '사르카',
-  '마투라', '엔쿠라', '템페스트', '톨크루마', '가레스', '브레카', '탈킨', '스탄', '오크', '바실라',
-  '란도르', '글라키', '히실로메', '망각의거울', '실라', '무프', '노르무스', '우칸바'
+  '메두사', '티미트리스', '사반', '트롬바', '베히모스', '탈라킨', '체르투바', '판드', '카탄',
+  '사르카', '마투라', '엔쿠라', '템페스트', '톨크루마', '가레스', '브레카', '탈킨', '스탄',
+  '오크', '바실라', '란도르', '글라키', '히실로메', '망각의거울', '실라', '무프', '노르무스', '우칸바',
+  '펠리스' // ✅ 추가된 보스
 ];
 
 export default function SoulPage() {
-  const router = useRouter();
-  const [form, setForm] = useState<{ [key: string]: boolean | string }>({ id: '' });
+  const [form, setForm] = useState<{ [key: string]: any }>({ id: '' });
   const [records, setRecords] = useState<any[]>([]);
+  const [editKey, setEditKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      const snapshot = await get(ref(database, 'soul'));
+    const soulRef = ref(database, 'soul');
+    onValue(soulRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
         setRecords(parsed);
       }
     });
-
-    return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+    const { name, type, checked, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
   const handleSubmit = async () => {
     if (!form.id) return alert('아이디를 입력해주세요.');
-    await set(ref(database, `soul/${form.id}`), form);
-    alert('저장 완료!');
-    setForm({ id: '' });
-    bosses.forEach((boss) => (form[boss] = false));
-    const snapshot = await get(ref(database, 'soul'));
-    const data = snapshot.val();
-    if (data) {
-      const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
-      setRecords(parsed);
+    const dataToSave = { ...form };
+    if (editKey) {
+      await set(ref(database, `soul/${editKey}`), dataToSave);
+      setEditKey(null);
+    } else {
+      await push(ref(database, 'soul'), dataToSave);
     }
+    setForm({ id: '' });
   };
 
   const handleEdit = (record: any) => {
-    const copy = { ...record };
-    delete copy.key;
-    setForm(copy);
+    setForm(record);
+    setEditKey(record.key);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    await remove(ref(database, `soul/${id}`));
-    setRecords((prev) => prev.filter((r) => r.key !== id));
+  const handleDelete = async (key: string) => {
+    await remove(ref(database, `soul/${key}`));
   };
 
   return (
     <main className="p-10">
       <h1 className="text-xl font-bold mb-4">🧠 혼 보유 현황 입력</h1>
-      <div className="flex flex-wrap gap-2 items-center mb-6">
+
+      {/* ✅ 입력 폼 */}
+      <div className="flex flex-wrap gap-2 items-center mb-4">
         <input
           name="id"
-          value={form['id'] || ''}
+          value={form.id || ''}
           onChange={handleChange}
           placeholder="아이디"
           className="border px-2 py-1 rounded w-32 text-sm"
@@ -85,7 +74,7 @@ export default function SoulPage() {
             <input
               type="checkbox"
               name={boss}
-              checked={Boolean(form[boss])}
+              checked={!!form[boss]}
               onChange={handleChange}
             />
             {boss}
@@ -99,41 +88,32 @@ export default function SoulPage() {
         </button>
       </div>
 
+      {/* ✅ 리스트 테이블 */}
       <table className="border text-sm w-full table-auto">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border px-2 py-1">아이디</th>
+        <thead className="bg-gray-200">
+          <tr>
+            <th className="border p-2 whitespace-nowrap">아이디</th>
             {bosses.map((boss) => (
-              <th key={boss} className="border px-2 py-1 whitespace-nowrap">{boss}</th>
+              <th key={boss} className="border p-2 whitespace-nowrap">{boss}</th>
             ))}
-            <th className="border px-2 py-1">수정</th>
-            <th className="border px-2 py-1">삭제</th>
+            <th className="border p-2 whitespace-nowrap">수정</th>
+            <th className="border p-2 whitespace-nowrap">삭제</th>
           </tr>
         </thead>
         <tbody>
           {records.map((record) => (
             <tr key={record.key} className="text-center">
-              <td className="border px-2 py-1">{record.id}</td>
+              <td className="border p-2">{record.id}</td>
               {bosses.map((boss) => (
-                <td key={boss} className="border px-2 py-1">
-                  {record[boss] ? '✔️' : ''}
+                <td key={boss} className="border p-2">
+                  {record[boss] ? '✅' : ''}
                 </td>
               ))}
-              <td className="border px-2 py-1">
-                <button
-                  onClick={() => handleEdit(record)}
-                  className="text-blue-600 hover:underline"
-                >
-                  수정
-                </button>
+              <td className="border p-2">
+                <button onClick={() => handleEdit(record)} className="text-blue-600 hover:underline text-xs">수정</button>
               </td>
-              <td className="border px-2 py-1">
-                <button
-                  onClick={() => handleDelete(record.id)}
-                  className="text-red-600 hover:underline"
-                >
-                  삭제
-                </button>
+              <td className="border p-2">
+                <button onClick={() => handleDelete(record.key)} className="text-red-600 hover:underline text-xs">삭제</button>
               </td>
             </tr>
           ))}
