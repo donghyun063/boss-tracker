@@ -77,58 +77,62 @@ export default function SpecPage() {
 
       <h1 className="text-xl font-bold mb-4">📝 스펙 입력</h1>
 
-      {/* 입력 영역 */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {fields.map((field) => (
-          <input
-            key={field.name}
-            name={field.name}
-            placeholder={field.label}
-            value={form[field.name] || ''}
-            onChange={handleChange}
-            className="border p-1 text-xs w-[80px]"
-          />
-        ))}
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-600 text-white px-4 py-1 text-sm rounded"
-        >
-          입력
-        </button>
+      {/* ✅ 입력 영역 */}
+      <div className="overflow-x-auto w-full">
+        <div className="flex-nowrap whitespace-nowrap flex gap-1">
+          {fields.map((field) => (
+            <input
+              key={field.name}
+              name={field.name}
+              placeholder={field.label}
+              value={form[field.name] || ''}
+              onChange={handleChange}
+              className="border p-1 text-xs w-[70px] text-center"
+            />
+          ))}
+          <button
+            onClick={handleSubmit}
+            className="bg-blue-600 text-white px-3 py-1 text-sm rounded"
+          >
+            입력
+          </button>
+        </div>
       </div>
 
-      {/* 리스트 영역 */}
-      <table className="w-full border border-gray-300 text-sm table-fixed">
-        <thead className="bg-gray-100">
-          <tr>
-            {fields.map((field) => (
-              <th key={field.name} className="border p-2 whitespace-nowrap text-xs">
-                {field.label}
-              </th>
-            ))}
-            <th className="border p-2 text-xs">삭제</th>
-          </tr>
-        </thead>
-        <tbody>
-          {specs.map((spec) => (
-            <tr key={spec.key} className="text-center">
+      {/* ✅ 테이블 */}
+      <div className="overflow-x-auto mt-6">
+        <table className="w-full border border-gray-300 text-xs">
+          <thead className="bg-gray-100">
+            <tr>
               {fields.map((field) => (
-                <td key={field.name} className="border p-2 text-xs whitespace-nowrap">
-                  {spec[field.name] || ''}
-                </td>
+                <th key={field.name} className="border p-2 whitespace-nowrap px-3">
+                  {field.label}
+                </th>
               ))}
-              <td className="border p-2">
-                <button
-                  onClick={() => handleDelete(spec.key)}
-                  className="text-red-500 hover:underline text-xs"
-                >
-                  삭제
-                </button>
-              </td>
+              <th className="border p-2">삭제</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {specs.map((spec) => (
+              <tr key={spec.key} className="text-center">
+                {fields.map((field) => (
+                  <td key={field.name} className="border px-3 py-1 whitespace-nowrap">
+                    {spec[field.name] || ''}
+                  </td>
+                ))}
+                <td className="border px-3 py-1">
+                  <button
+                    onClick={() => handleDelete(spec.key)}
+                    className="text-red-500 hover:underline"
+                  >
+                    삭제
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }
