@@ -101,7 +101,7 @@ export default function Dashboard() {
   return (
     <main className="flex flex-col items-center p-10 space-y-6 bg-gray-50 min-h-screen">
       <div className="w-full max-w-6xl flex justify-between items-center">
-        <h1 className="text-3xl font-bold">0000 혈 대시보드</h1>
+        <h1 className="text-3xl font-bold">0000 혈 </h1>
         <div className="flex gap-2">
        
           <button onClick={() => router.push('/spec')} className="bg-orange-500 text-white px-4 py-2 rounded text-sm">📋 스펙 현황</button>
