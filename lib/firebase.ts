@@ -18,3 +18,12 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 export { app, database, auth, provider }; // 👈 이 줄 추가!
+
+import { ref, get } from 'firebase/database';
+
+export async function isUserRegistered(uid: string): Promise<boolean> {
+  const db = getDatabase();
+  const userRef = ref(db, `users/${uid}`);
+  const snapshot = await get(userRef);
+  return snapshot.exists();
+}
