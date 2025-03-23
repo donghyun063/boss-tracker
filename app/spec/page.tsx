@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, update, get, remove } from 'firebase/database';
+import { ref, update, get } from 'firebase/database';
 import { auth, database } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -65,7 +65,7 @@ export default function SpecPage() {
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <main className="flex flex-col items-center p-10 space-y-6 max-w-screen-lg mx-auto">
+    <main className="flex flex-col items-center p-10 space-y-6 max-w-full overflow-x-auto">
       <button
         onClick={() => router.push('/')}
         className="text-sm text-blue-600 underline hover:text-blue-800 self-start"
@@ -75,16 +75,16 @@ export default function SpecPage() {
 
       <h1 className="text-2xl font-bold mb-4">📋 스펙 입력 및 수정</h1>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
+      <div className="flex flex-wrap gap-x-2 gap-y-4 text-xs">
         {fields.map((key) => (
-          <div key={key} className="flex flex-col text-sm">
-            <label className="font-semibold mb-1">{key.toUpperCase()}</label>
+          <div key={key} className="flex flex-col items-center">
+            <label className="mb-1 font-semibold">{key.toUpperCase()}</label>
             <input
               name={key}
               value={form[key] || ''}
               onChange={handleChange}
-              className="border p-1 rounded"
-              placeholder={`${key} 입력`}
+              className="border p-1 rounded w-20 text-center"
+              placeholder={key}
             />
           </div>
         ))}

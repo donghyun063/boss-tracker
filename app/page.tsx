@@ -103,7 +103,7 @@ export default function Dashboard() {
       <div className="w-full max-w-6xl flex justify-between items-center">
         <h1 className="text-3xl font-bold">0000 혈 대시보드</h1>
         <div className="flex gap-2">
-        // 대시보드 버튼 부분에 아래 코드 줄 추가
+       
           <button onClick={() => router.push('/spec')} className="bg-orange-500 text-white px-4 py-2 rounded text-sm">📋 스펙 현황</button>
           <button onClick={() => router.push('/record')} className="bg-green-600 text-white px-4 py-2 rounded text-sm">+ 보스참여자 입력</button>
           <button onClick={() => router.push('/fund')} className="bg-blue-500 text-white px-4 py-2 rounded text-sm">💰 혈비 관리</button>
