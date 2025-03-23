@@ -11,13 +11,10 @@ export default function Dashboard() {
   const [records, setRecords] = useState<any[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [funds, setFunds] = useState<{
-    date: string;
-    amount: number;
-    type: '입금' | '출금';
-  }[]>([]);
+  const [funds, setFunds] = useState<{ date: string; amount: number; type: '입금' | '출금' }[]>([]);
   const [itemRecords, setItemRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false); // ✅ 관리자 여부 확인용
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -36,16 +33,17 @@ export default function Dashboard() {
         return;
       }
 
-      setLoading(false); // 승인된 사용자만 이 아래 코드 실행
+      if (userInfo.role === 'admin') {
+        setIsAdmin(true); // ✅ 관리자면 true
+      }
+
+      setLoading(false);
 
       const bossRef = ref(database, 'boss-records');
       onValue(bossRef, (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-        const parsed = Object.entries(data).map(([key, value]: any) => ({
-          key,
-          ...value,
-        }));
+        const parsed = Object.entries(data).map(([key, value]: any) => ({ key, ...value }));
         setRecords(parsed.reverse());
 
         const filteredItems = parsed.filter((record: any) =>
@@ -94,7 +92,6 @@ export default function Dashboard() {
   const totalAmount = funds.reduce((sum, record) => {
     return record.type === '입금' ? sum + record.amount : sum - record.amount;
   }, 0);
-
   const heebiCount = records.reduce((count, record) => {
     return count + (record.dropItems?.filter((item: string) => item.includes('희비')).length || 0);
   }, 0);
@@ -109,6 +106,9 @@ export default function Dashboard() {
           <button onClick={() => router.push('/record')} className="bg-green-600 text-white px-4 py-2 rounded text-sm">+ 보스참여자 입력</button>
           <button onClick={() => router.push('/fund')} className="bg-blue-500 text-white px-4 py-2 rounded text-sm">💰 혈비 관리</button>
           <button onClick={() => router.push('/item-bid')} className="bg-purple-500 text-white px-4 py-2 rounded text-sm">📦 아이템 보유/입찰</button>
+          {isAdmin && (
+            <button onClick={() => router.push('/admin')} className="bg-red-500 text-white px-4 py-2 rounded text-sm">👑 관리자 승인</button>
+          )}
         </div>
       </div>
 
