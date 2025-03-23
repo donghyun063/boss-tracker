@@ -73,7 +73,7 @@ export default function SpecPage() {
   if (loading) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <main className="p-6 space-y-6 max-w-[1600px] mx-auto">
+    <main className="p-6 space-y-4 max-w-[100vw] overflow-x-hidden">
       <button
         onClick={() => router.push('/')}
         className="text-sm text-blue-600 underline hover:text-blue-800"
@@ -83,7 +83,8 @@ export default function SpecPage() {
 
       <h1 className="text-2xl font-bold">📋 스펙 입력</h1>
 
-      <div className="flex flex-nowrap gap-2 overflow-x-auto">
+      {/* 입력영역 */}
+      <div className="flex gap-1 flex-wrap">
         {fields.map((field) => (
           <input
             key={field}
@@ -91,20 +92,22 @@ export default function SpecPage() {
             placeholder={field}
             value={form[field] || ''}
             onChange={handleChange}
-            className="border p-1 w-[90px] text-sm rounded"
+            className="border p-1 w-[70px] text-xs rounded"
           />
         ))}
       </div>
 
+      {/* 입력 버튼 */}
       <button
         onClick={handleSubmit}
-        className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+        className="bg-blue-600 text-white px-4 py-1 rounded text-sm"
       >
         {editKey ? '수정 완료' : '입력'}
       </button>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-300 text-sm text-center">
+      {/* 스펙 테이블 */}
+      <div className="overflow-x-hidden">
+        <table className="w-full border border-gray-300 text-xs text-center">
           <thead className="bg-gray-100">
             <tr>
               {fields.map((field) => (
