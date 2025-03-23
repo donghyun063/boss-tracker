@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ref, push, onValue, set, remove } from 'firebase/database';
 import { database } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 const bosses = [
   '메두사', '티미트리스', '사반', '트롬바', '베히모스', '탈라킨', '체르투바', '판드', '카탄',
@@ -12,6 +13,7 @@ const bosses = [
 ];
 
 export default function SoulPage() {
+  const router = useRouter();
   const [form, setForm] = useState<{ [key: string]: any }>({ id: '' });
   const [records, setRecords] = useState<any[]>([]);
   const [editKey, setEditKey] = useState<string | null>(null);
@@ -58,6 +60,14 @@ export default function SoulPage() {
 
   return (
     <main className="p-10">
+      {/* ✅ 대시보드로 돌아가기 버튼 */}
+      <button
+        onClick={() => router.push('/')}
+        className="text-sm text-blue-600 underline hover:text-blue-800 mb-4"
+      >
+        ← 대시보드로 돌아가기
+      </button>
+
       <h1 className="text-xl font-bold mb-4">🧠 혼 보유 현황 입력</h1>
 
       {/* ✅ 입력 폼 */}
