@@ -67,7 +67,7 @@ export default function SpecPage() {
   };
 
   return (
-    <main className="p-5 max-w-screen-xl mx-auto">
+    <main className="p-5 max-w-full overflow-hidden">
       <button
         onClick={() => router.push('/')}
         className="text-sm text-blue-600 underline mb-4"
@@ -77,9 +77,9 @@ export default function SpecPage() {
 
       <h1 className="text-xl font-bold mb-4">📝 스펙 입력</h1>
 
-      {/* ✅ 입력 영역 */}
-      <div className="overflow-x-auto w-full">
-        <div className="flex-nowrap whitespace-nowrap flex gap-1">
+      {/* 입력 영역 1줄 */}
+      <div className="w-full overflow-hidden mb-4">
+        <div className="flex flex-wrap gap-1 justify-start">
           {fields.map((field) => (
             <input
               key={field.name}
@@ -99,9 +99,9 @@ export default function SpecPage() {
         </div>
       </div>
 
-      {/* ✅ 테이블 */}
-      <div className="overflow-x-auto mt-6">
-        <table className="w-full border border-gray-300 text-xs">
+      {/* 출력 테이블 */}
+      <div className="w-full overflow-hidden">
+        <table className="w-full border border-gray-300 text-xs table-fixed">
           <thead className="bg-gray-100">
             <tr>
               {fields.map((field) => (
